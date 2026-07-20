@@ -12,15 +12,6 @@ If the service restarts, it automatically catches up on messages it missed while
 
 ## Deployment
 
-### Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/whatsapp-group-monitor?referralCode=5IPNhU&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
-Click the button above to deploy. The template sets up the volume and exposes HTTPS automatically. You only need to set `ADMIN_PASSWORD` during setup.
-
-Once deployed, navigate to the service Settings page on Railway and copy the URL from Public Networking. You can also change the region if you wish.
-
-[![Railway Settings](pix/railway-settings-thumb.png)](pix/railway-settings.png)
 
 
 ### Docker
