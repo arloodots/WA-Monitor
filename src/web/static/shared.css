@@ -47,6 +47,7 @@
   --scrollbar-thumb-bg: rgba(255, 255, 255, 0.15);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
   --brand-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --select-bg: rgba(255, 255, 255, 0.05);
 }
 
 .theme-light {
@@ -96,6 +97,7 @@
   --scrollbar-thumb-bg: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
   --brand-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --select-bg: rgba(0, 0, 0, 0.05);
 }
 
 .theme-dark {
@@ -145,6 +147,7 @@
   --scrollbar-thumb-bg: #222e43;
   --scrollbar-thumb-hover: #334155;
   --brand-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --select-bg: #1e293b;
 }
 
 .theme-neon {
@@ -194,6 +197,7 @@
   --scrollbar-thumb-bg: rgba(139, 92, 246, 0.3);
   --scrollbar-thumb-hover: rgba(139, 92, 246, 0.5);
   --brand-gradient: linear-gradient(135deg, #d946ef 0%, #a855f7 100%);
+  --select-bg: rgba(139, 92, 246, 0.15);
 }
 
 .theme-sunset {
@@ -243,6 +247,7 @@
   --scrollbar-thumb-bg: rgba(67, 20, 7, 0.15);
   --scrollbar-thumb-hover: rgba(67, 20, 7, 0.25);
   --brand-gradient: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  --select-bg: rgba(67, 20, 7, 0.05);
 }
 
 * {
@@ -504,7 +509,7 @@ header nav {
 }
 
 .kebab-dropdown a:hover, .kebab-dropdown button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
 }
 
 #disconnect-btn {
@@ -1072,7 +1077,7 @@ button.action-btn, button.save-btn, button.toggle {
 .theme-select {
   appearance: none;
   -webkit-appearance: none;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--select-bg);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-full);
   color: var(--text-main);
@@ -1105,5 +1110,12 @@ button.action-btn, button.save-btn, button.toggle {
 .theme-sunset .theme-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c2d12' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
+
+/* Option Dropdown backgrounds for theming support */
+select option, .theme-select option {
+  background-color: var(--dropdown-bg);
+  color: var(--text-main);
+}
+
 
 
