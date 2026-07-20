@@ -4,7 +4,7 @@ Enterprise WhatsApp group activity tracker and intelligence dashboard. Tracks gr
 
 ## WhatsApp Account
 
-This tool uses [Baileys](https://github.com/WhiskeySockets/Baileys), an open-source library that connects to WhatsApp as a linked device. No WhatsApp Business account or API subscription is needed — a regular WhatsApp account works.
+No WhatsApp Business account or API subscription is needed — a regular WhatsApp account works.
 
 You can use your own WhatsApp account or a dedicated one. The monitor connects as a linked device and passively tracks group activity without interfering with normal use.
 
@@ -47,9 +47,7 @@ npm run dev
 |----------|---------|-------------|
 | `ADMIN_PASSWORD` | *(required)* | Password for the web panel |
 | `ADMIN_USERNAME` | `admin` | Username for the web panel |
-| `PORT` | `3000` | Web server port |
 | `DATA_DIR` | `./data` | Directory for auth state and database |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
 Additional settings (project name, page size) are configurable from the Settings page.
 
@@ -84,6 +82,4 @@ Only one WhatsApp account can be connected at a time. Activity is only tracked w
 
 Baileys (WhatsApp Web) + Fastify + SQLite (better-sqlite3) + Drizzle ORM + TypeScript
 
-## License
 
-[MIT](LICENSE)
