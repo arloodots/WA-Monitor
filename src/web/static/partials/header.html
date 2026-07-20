@@ -8,6 +8,15 @@
     <h1>{{PROJECT_NAME}}</h1>
   </a>
   <nav>
+    <div class="theme-picker-container">
+      <select id="theme-selector" onchange="changeTheme(this.value)" class="theme-select" aria-label="Select Theme">
+        <option value="glassmorphism">💎 Glassmorphic</option>
+        <option value="light">☀️ Light Elegant</option>
+        <option value="dark">🌙 Dark Flat</option>
+        <option value="neon">⚡ Neon Cyber</option>
+        <option value="sunset">🌅 Warm Sunset</option>
+      </select>
+    </div>
     <form method="POST" action="/logout" style="display:inline">
       <input type="hidden" name="_csrf" value="{{CSRF_TOKEN}}" />
       <button type="submit" class="logout-btn">

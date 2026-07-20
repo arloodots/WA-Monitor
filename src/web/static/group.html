@@ -6,6 +6,7 @@
   <title>{{PROJECT_NAME}} &middot; Group Details</title>
   <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
   <link rel="stylesheet" href="/static/shared.css" />
+  <script src="/static/shared.js"></script>
   <style>
     .group-header {
       display: flex;
@@ -351,6 +352,5 @@
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     loadGroup();
   </script>
-  <script src="/static/shared.js"></script>
 </body>
 </html>
