@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect WhatsApp &middot; {{PROJECT_NAME}}</title>
+  <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <style>
+    .connection-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1rem;
+    }
+    .qr-card {
+      background: var(--surface-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+    .qr-card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 0.5rem;
+    }
+    .qr-frame {
+      position: relative;
+      display: inline-block;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .qr-frame img {
+      display: block;
+      max-width: 260px;
+      height: auto;
+      border-radius: 4px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-full);
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--surface-border);
+    }
+    .instruction-text {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+    .instruction-text ol {
+      text-align: left;
+      padding-left: 1.25rem;
+      margin: 0.5rem 0 0;
+    }
+    .instruction-text li {
+      margin-bottom: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  {{> header}}
+  <div class="content">
+    {{> status-bar}}
+    <div class="connection-wrapper">
+      <div class="qr-card">
+        <h2 class="qr-card-title">Link WhatsApp Account</h2>
+        <div class="status-badge" id="status-badge-container">
+          <p id="status" class="waiting" style="margin:0;">Initializing connection...</p>
+        </div>
+        <div id="qr-img"></div>
+        <div class="instruction-text">
+          <ol>
+            <li>Open WhatsApp on your mobile phone</li>
+            <li>Tap <strong>Settings</strong> or <strong>Menu</strong> &rarr; <strong>Linked Devices</strong></li>
+            <li>Point your phone camera at this screen to scan the QR code</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const statusEl = document.getElementById('status');
+    const qrEl = document.getElementById('qr-img');
+
+    async function poll() {
+      try {
+        const res = await fetch('/api/status');
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+
+        if (data.state === 'open') {
+          window.location.href = '/';
+          return;
+        } else if (data.qr) {
+          statusEl.textContent = 'Scan QR code with WhatsApp';
+          statusEl.className = 'waiting';
+          qrEl.innerHTML = '<div class="qr-frame"><img src="' + data.qr + '" alt="WhatsApp QR Code" /></div>';
+        } else if (data.state === 'close') {
+          statusEl.textContent = 'Reconnecting to WhatsApp...';
+          statusEl.className = 'reconnecting';
+          qrEl.innerHTML = '';
+        } else {
+          statusEl.textContent = 'Generating QR code...';
+          statusEl.className = 'waiting';
+          qrEl.innerHTML = '';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error connecting to monitor server';
+        statusEl.className = 'error';
+      }
+    }
+
+    poll();
+    setInterval(poll, 2000);
+  </script>
+</body>
+</html>

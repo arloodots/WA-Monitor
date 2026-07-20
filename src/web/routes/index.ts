@@ -1,0 +1,337 @@
+import type { FastifyInstance } from 'fastify'
+import QRCode from 'qrcode'
+import { config } from '../../config.js'
+import { sendPage } from '../server.js'
+import { getCurrentQr, getConnectionState, getBotUser } from '../../whatsapp/handlers/connection.js'
+import { getSock } from '../../whatsapp/client.js'
+import { requireAuth, requireAuthApi, generateCsrf, verifyCsrf } from '../middleware/auth.js'
+import { getSettingOrDefault, setSetting } from '../../db/queries/settings.js'
+import { getAllGroups, getGroup } from '../../db/queries/groups.js'
+import { GroupRecord } from '../../whatsapp/group/record.js'
+import { isAccountDbReady } from '../../db/account.js'
+import { jidNormalizedUser } from 'baileys'
+import { getUser } from '../../db/queries/users.js'
+import { getUserGroupMemberships } from '../../db/queries/members.js'
+import { getUserActivityPerGroup } from '../../db/queries/activity.js'
+import { registerBackupRoutes } from './backup.js'
+
+function csvEscape(val: any): string {
+  const str = String(val ?? '')
+  return '"' + str.replace(/"/g, '""') + '"'
+}
+
+export function registerRoutes(app: FastifyInstance) {
+  registerBackupRoutes(app)
+  // --- Public: login ---
+  app.get('/login', async (req, reply) => {
+    if (req.session.authenticated) {
+      return reply.redirect('/')
+    }
+    generateCsrf(req)
+    return sendPage(reply, 'login.html', req)
+  })
+
+  app.post('/login', async (req, reply) => {
+    if (!verifyCsrf(req)) {
+      return reply.status(403).send('Invalid CSRF token')
+    }
+
+    const { username, password } = req.body as { username?: string; password?: string }
+
+    if (!config.adminPassword) {
+      return reply.status(503).send('ADMIN_PASSWORD not configured in .env')
+    }
+
+    if (username === config.adminUsername && password === config.adminPassword) {
+      req.session.authenticated = true
+      return reply.redirect('/')
+    }
+
+    return reply.redirect('/login?error=1')
+  })
+
+  // --- Protected: main page ---
+  app.get('/', { preHandler: requireAuth }, async (req, reply) => {
+    generateCsrf(req)
+    const state = getConnectionState()
+    if (state === 'open') {
+      return sendPage(reply, 'dashboard.html', req)
+    }
+    return sendPage(reply, 'connection.html', req)
+  })
+
+  app.post('/logout', { preHandler: requireAuth }, async (req, reply) => {
+    if (!verifyCsrf(req)) {
+      return reply.status(403).send('Invalid CSRF token')
+    }
+    await req.session.destroy()
+    return reply.redirect('/login')
+  })
+
+  app.post('/disconnect', { preHandler: requireAuth }, async (req, reply) => {
+    if (!verifyCsrf(req)) {
+      return reply.status(403).send('Invalid CSRF token')
+    }
+    try {
+      const sock = getSock()
+      await sock.logout('User requested disconnect')
+    } catch {
+      // not connected
+    }
+    return reply.redirect('/')
+  })
+
+  // --- Protected: settings ---
+  app.get('/settings', { preHandler: requireAuth }, async (req, reply) => {
+    generateCsrf(req)
+    return sendPage(reply, 'settings.html', req)
+  })
+
+  app.get('/api/settings', { preHandler: requireAuthApi }, async (_req, reply) => {
+    return reply.send({
+      project_name: getSettingOrDefault('project_name', 'WA-Monitor'),
+      page_size: getSettingOrDefault('page_size', '50'),
+    })
+  })
+
+  app.post('/api/settings', { preHandler: requireAuthApi }, async (req, reply) => {
+    if (!verifyCsrf(req)) {
+      return reply.status(403).send({ error: 'Invalid CSRF token' })
+    }
+    const body = req.body as Record<string, string>
+    const allowed = ['project_name', 'page_size']
+    for (const key of allowed) {
+      if (key in body && typeof body[key] === 'string') {
+        setSetting(key, body[key])
+      }
+    }
+    return reply.send({ ok: true })
+  })
+
+  // --- Protected API ---
+  app.get('/api/groups', { preHandler: requireAuthApi }, async (_req, reply) => {
+    if (!isAccountDbReady()) {
+      return reply.send({ groups: [] })
+    }
+    const groups = getAllGroups()
+    GroupRecord.populateAllSummaries(groups)
+    return reply.send({ groups: groups.map(g => g.toJSON()) })
+  })
+
+  app.get('/group/:jid', { preHandler: requireAuth }, async (req, reply) => {
+    generateCsrf(req)
+    return sendPage(reply, 'group.html', req)
+  })
+
+  app.get('/api/groups/:jid', { preHandler: requireAuthApi }, async (req, reply) => {
+    if (!isAccountDbReady()) {
+      return reply.status(503).send({ error: 'Not connected' })
+    }
+    const { jid } = req.params as { jid: string }
+    const group = getGroup(jid)
+    if (!group) {
+      return reply.status(404).send({ error: 'Group not found' })
+    }
+
+    const members = group.getMembers({ includeLeft: true })
+    const userActivity = group.getUserActivity(30)
+    const activityMap = new Map(userActivity.map(a => [a.userJid, a]))
+
+    let botUserJid: string | null = null
+    try {
+      const sock = getSock()
+      if (sock.user?.lid) botUserJid = jidNormalizedUser(sock.user.lid)
+      else if (sock.user?.id) botUserJid = jidNormalizedUser(sock.user.id)
+    } catch { /* not connected */ }
+
+    const enrichedMembers = members.map(m => {
+      const activity = activityMap.get(m.userJid)
+      return {
+        ...m,
+        isBot: botUserJid ? m.userJid === botUserJid : false,
+        posts: activity?.posts ?? 0,
+        reactions: activity?.reactions ?? 0,
+        total: activity?.total ?? 0,
+        lastActivity: activity?.lastActivity ?? null,
+      }
+    })
+
+    return reply.send({
+      group: {
+        ...group.toJSON(),
+        memberCount: group.getMemberCount(),
+        lastActivity: group.getLastActivity(),
+      },
+      members: enrichedMembers,
+    })
+  })
+
+  // --- CSV / JSON Export Endpoints ---
+  app.get('/api/groups/export', { preHandler: requireAuthApi }, async (req, reply) => {
+    if (!isAccountDbReady()) return reply.status(503).send({ error: 'Not connected' })
+    const { format } = req.query as { format?: string }
+    const groups = getAllGroups()
+    GroupRecord.populateAllSummaries(groups)
+    const data = groups.map(g => g.toJSON())
+
+    if (format === 'json') {
+      reply.header('Content-Type', 'application/json; charset=utf-8')
+      reply.header('Content-Disposition', 'attachment; filename="wa-monitor-groups.json"')
+      return reply.send(JSON.stringify(data, null, 2))
+    }
+
+    const headers = ['JID', 'Group Name', 'Is Community', 'Parent Community JID', 'Members', 'Activity (30d)', 'Last Activity (Timestamp)']
+    const csvRows = [headers.join(',')]
+    for (const g of data) {
+      csvRows.push([
+        csvEscape(g.jid),
+        csvEscape(g.name),
+        g.isCommunity ? 'Yes' : 'No',
+        csvEscape(g.parentCommunityJid || ''),
+        g.memberCount || 0,
+        g.activityCount || 0,
+        g.lastActivity || '',
+      ].join(','))
+    }
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header('Content-Disposition', 'attachment; filename="wa-monitor-groups.csv"')
+    return reply.send(csvRows.join('\n'))
+  })
+
+  app.get('/api/groups/:jid/export', { preHandler: requireAuthApi }, async (req, reply) => {
+    if (!isAccountDbReady()) return reply.status(503).send({ error: 'Not connected' })
+    const { jid } = req.params as { jid: string }
+    const { format } = req.query as { format?: string }
+    const group = getGroup(jid)
+    if (!group) return reply.status(404).send({ error: 'Group not found' })
+
+    const members = group.getMembers({ includeLeft: true })
+    const userActivity = group.getUserActivity(30)
+    const activityMap = new Map(userActivity.map(a => [a.userJid, a]))
+
+    let botUserJid: string | null = null
+    try {
+      const sock = getSock()
+      if (sock.user?.lid) botUserJid = jidNormalizedUser(sock.user.lid)
+      else if (sock.user?.id) botUserJid = jidNormalizedUser(sock.user.id)
+    } catch { /* not connected */ }
+
+    const enrichedMembers = members.map(m => {
+      const activity = activityMap.get(m.userJid)
+      return {
+        ...m,
+        isBot: botUserJid ? m.userJid === botUserJid : false,
+        posts: activity?.posts ?? 0,
+        reactions: activity?.reactions ?? 0,
+        total: activity?.total ?? 0,
+        lastActivity: activity?.lastActivity ?? null,
+      }
+    })
+
+    const safeName = group.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+
+    if (format === 'json') {
+      reply.header('Content-Type', 'application/json; charset=utf-8')
+      reply.header('Content-Disposition', `attachment; filename="wa-monitor-${safeName}-members.json"`)
+      return reply.send(JSON.stringify({ group: group.toJSON(), members: enrichedMembers }, null, 2))
+    }
+
+    const headers = ['User JID', 'Display Name', 'Phone Number', 'Role', 'Is Bot (You)', 'Posts (30d)', 'Reactions (30d)', 'Total Activity (30d)', 'Last Activity', 'Last Read']
+    const csvRows = [headers.join(',')]
+    for (const m of enrichedMembers) {
+      csvRows.push([
+        csvEscape(m.userJid),
+        csvEscape(m.displayName || ''),
+        csvEscape(m.phoneNumber || ''),
+        csvEscape(m.membership),
+        m.isBot ? 'Yes' : 'No',
+        m.posts,
+        m.reactions,
+        m.total,
+        m.lastActivity || '',
+        csvEscape(m.lastReadAt || ''),
+      ].join(','))
+    }
+
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header('Content-Disposition', `attachment; filename="wa-monitor-${safeName}-members.csv"`)
+    return reply.send(csvRows.join('\n'))
+  })
+
+  app.get('/user/:jid', { preHandler: requireAuth }, async (req, reply) => {
+    generateCsrf(req)
+    return sendPage(reply, 'user.html', req)
+  })
+
+  app.get('/api/users/:jid', { preHandler: requireAuthApi }, async (req, reply) => {
+    if (!isAccountDbReady()) return reply.status(503).send({ error: 'Not connected' })
+    const { jid } = req.params as { jid: string }
+    const user = getUser(jid)
+    if (!user) return reply.status(404).send({ error: 'User not found' })
+
+    const memberships = getUserGroupMemberships(jid)
+    const activityData = getUserActivityPerGroup(jid, 30)
+    const activityMap = new Map(activityData.map(a => [a.groupJid, a]))
+
+    const allGroups = getAllGroups()
+    const groupMap = new Map(allGroups.map(g => [g.jid, g]))
+    const membershipGroupJids = new Set(memberships.map(m => m.groupJid))
+
+    const rows = memberships.map(m => ({
+      groupJid: m.groupJid,
+      groupName: m.groupName,
+      isCommunity: m.isCommunity,
+      parentCommunityJid: m.parentCommunityJid,
+      membership: m.membership,
+      lastReadAt: m.lastReadAt,
+      headerOnly: false,
+      posts: activityMap.get(m.groupJid)?.posts ?? 0,
+      reactions: activityMap.get(m.groupJid)?.reactions ?? 0,
+      total: activityMap.get(m.groupJid)?.total ?? 0,
+      lastActivity: activityMap.get(m.groupJid)?.lastActivity ?? null,
+    }))
+
+    // Add parent communities as header-only grouping rows if user is not directly in them
+    const addedCommunities = new Set<string>()
+    for (const m of memberships) {
+      if (m.parentCommunityJid && !membershipGroupJids.has(m.parentCommunityJid) && !addedCommunities.has(m.parentCommunityJid)) {
+        const g = groupMap.get(m.parentCommunityJid)
+        if (g) {
+          rows.push({
+            groupJid: g.jid,
+            groupName: g.name,
+            isCommunity: true,
+            parentCommunityJid: null,
+            membership: 'none',
+            lastReadAt: null,
+            headerOnly: true,
+            posts: 0,
+            reactions: 0,
+            total: 0,
+            lastActivity: null,
+          })
+          addedCommunities.add(g.jid)
+        }
+      }
+    }
+
+    return reply.send({ user, memberships: rows })
+  })
+
+  app.get('/api/status', { preHandler: requireAuthApi }, async (_req, reply) => {
+    const qr = getCurrentQr()
+    const state = getConnectionState()
+    const user = state === 'open' ? getBotUser() : null
+
+    let qrDataUrl: string | null = null
+    if (qr) {
+      qrDataUrl = await QRCode.toDataURL(qr, { width: 300 })
+    }
+
+    return reply.send({
+      qr: qrDataUrl,
+      state: state ?? 'connecting',
+      user,
+    })
+  })
+}

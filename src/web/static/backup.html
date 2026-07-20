@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backup &middot; {{PROJECT_NAME}}</title>
+  <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <style>
+    .backup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+    }
+    .backup-box {
+      background: var(--surface-bg);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+    .card-title h2 {
+      color: var(--text-main);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.6rem;
+      transition: background 0.15s ease;
+    }
+    .item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .item label {
+      color: var(--text-main);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 0;
+    }
+    .item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .restore-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.6rem;
+      gap: 1rem;
+    }
+    .restore-item span {
+      color: var(--text-main);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .restore-item select {
+      width: auto;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .result-ok {
+      color: var(--primary);
+      background: var(--primary-subtle);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      font-size: 0.875rem;
+      margin-top: 0.85rem;
+    }
+    .result-err {
+      color: var(--danger);
+      background: var(--danger-subtle);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      font-size: 0.875rem;
+      margin-top: 0.85rem;
+    }
+    .file-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .file-row input[type="file"] {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      flex: 1;
+      min-width: 0;
+    }
+  </style>
+</head>
+<body>
+  {{> header}}
+  <div class="content">
+    {{> status-bar}}
+    <a class="back" href="/" id="back-link">&larr; Back to groups</a>
+
+    <div class="backup-grid">
+      <div class="backup-box">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <h2>Export Backup</h2>
+        </div>
+        <form id="download-form" method="POST" action="/backup/download">
+          <input type="hidden" name="_csrf" value="{{CSRF_TOKEN}}" />
+          <div id="download-items"><p class="muted">Loading backup options...</p></div>
+          <button type="submit" class="action-btn" id="download-btn" disabled style="margin-top:1.25rem; width:100%;">Download zip archive</button>
+        </form>
+      </div>
+
+      <div class="backup-box">
+        <div class="card-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <h2>Restore Archive</h2>
+        </div>
+        <div id="upload-section">
+          <div class="file-row">
+            <input type="file" id="zip-input" accept=".zip" onchange="onFileSelected()" />
+            <button class="action-btn" id="analyze-btn" onclick="analyzeBackup()" disabled style="margin-top:0">Analyze</button>
+          </div>
+          <p class="muted" id="upload-status" style="margin:0.75rem 0 0"></p>
+        </div>
+        <div id="analysis-section" style="display:none; margin-top:1.25rem">
+          <div id="analysis-items"></div>
+          <button class="action-btn" id="restore-btn" onclick="restoreBackup()" style="width:100%; margin-top:1rem;">Restore selected</button>
+          <div id="restore-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    let uploadToken = null;
+
+    // --- Download section ---
+    async function loadDownloadItems() {
+      try {
+        const res = await fetch('/api/backup/items');
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+        const container = document.getElementById('download-items');
+        if (!data.items || data.items.length === 0) {
+          container.innerHTML = '<p class="muted">No items to backup</p>';
+          return;
+        }
+        container.innerHTML = data.items.map(item =>
+          `<div class="item">
+            <input type="checkbox" name="items" id="dl-${escAttr(item.id)}" value="${escAttr(item.id)}" checked>
+            <label for="dl-${escAttr(item.id)}">${escHtml(item.label)}</label>
+          </div>`
+        ).join('');
+        document.getElementById('download-btn').disabled = false;
+      } catch {
+        document.getElementById('download-items').innerHTML = '<p class="muted">Failed to load items</p>';
+      }
+    }
+
+    // --- Restore section ---
+    function onFileSelected() {
+      document.getElementById('analyze-btn').disabled = !document.getElementById('zip-input').files.length;
+      document.getElementById('analysis-section').style.display = 'none';
+      document.getElementById('upload-status').textContent = '';
+      uploadToken = null;
+    }
+
+    async function analyzeBackup() {
+      const file = document.getElementById('zip-input').files[0];
+      if (!file) return;
+
+      const btn = document.getElementById('analyze-btn');
+      btn.disabled = true;
+      document.getElementById('upload-status').textContent = 'Uploading and analyzing archive...';
+      document.getElementById('analysis-section').style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/backup/upload', {
+          method: 'POST',
+          headers: { 'x-csrf-token': csrf },
+          body: formData,
+        });
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById('upload-status').textContent = data.error || 'Upload failed';
+          btn.disabled = false;
+          return;
+        }
+
+        uploadToken = data.token;
+        document.getElementById('upload-status').textContent = '';
+        renderAnalysis(data.items);
+      } catch {
+        document.getElementById('upload-status').textContent = 'Upload failed';
+        btn.disabled = false;
+      }
+    }
+
+    function renderAnalysis(items) {
+      if (!items || items.length === 0) {
+        document.getElementById('upload-status').textContent = 'No recognizable items found in this backup.';
+        document.getElementById('analyze-btn').disabled = false;
+        return;
+      }
+
+      const html = items.map(item => {
+        let options;
+        if (item.id === 'settings') {
+          options = `<option value="overwrite" selected>overwrite</option><option value="ignore">ignore</option>`;
+        } else if (item.hasExisting) {
+          options = `<option value="merge" selected>merge</option><option value="overwrite">overwrite</option><option value="ignore">ignore</option>`;
+        } else {
+          options = `<option value="import" selected>import</option><option value="ignore">ignore</option>`;
+        }
+        return `<div class="restore-item">
+          <span>${escHtml(item.label)}</span>
+          <select name="action" data-id="${escAttr(item.id)}">${options}</select>
+        </div>`;
+      }).join('');
+
+      document.getElementById('analysis-items').innerHTML = html;
+      document.getElementById('restore-result').innerHTML = '';
+      document.getElementById('restore-btn').disabled = false;
+      document.getElementById('analysis-section').style.display = '';
+      document.getElementById('analyze-btn').disabled = false;
+    }
+
+    async function restoreBackup() {
+      if (!uploadToken) return;
+
+      const choices = {};
+      document.querySelectorAll('#analysis-items select[data-id]').forEach(sel => {
+        choices[sel.dataset.id] = sel.value;
+      });
+
+      const btn = document.getElementById('restore-btn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/backup/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify({ token: uploadToken, choices }),
+        });
+        const data = await res.json();
+        const resultEl = document.getElementById('restore-result');
+        if (res.ok && data.ok) {
+          const lines = data.details.length
+            ? data.details.map(d => escHtml(d)).join('<br>')
+            : 'Nothing was restored (all items ignored).';
+          resultEl.innerHTML = `<div class="result-ok">${lines}</div>`;
+          uploadToken = null;
+          document.getElementById('zip-input').value = '';
+          document.getElementById('analyze-btn').disabled = true;
+        } else {
+          resultEl.innerHTML = `<div class="result-err">${escHtml(data.error || 'Restore failed')}</div>`;
+          btn.disabled = false;
+        }
+      } catch {
+        document.getElementById('restore-result').innerHTML = '<div class="result-err">Restore failed</div>';
+        btn.disabled = false;
+      }
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escAttr(s) { return s.replace(/"/g, '&quot;'); }
+
+    document.addEventListener('statusbar:state', (e) => {
+      if (e.detail !== 'open') document.getElementById('back-link').textContent = '\u2190 Back';
+    });
+
+    loadDownloadItems();
+  </script>
+</body>
+</html>

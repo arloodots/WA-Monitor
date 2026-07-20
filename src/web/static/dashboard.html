@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{PROJECT_NAME}} &middot; Intelligence Dashboard</title>
+  <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <style>
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 1.5rem 0 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .dashboard-title {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .dashboard-title h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .search-box {
+      position: relative;
+      min-width: 220px;
+    }
+    .search-box input {
+      padding-left: 2.5rem;
+      padding-top: 0.55rem;
+      padding-bottom: 0.55rem;
+      font-size: 0.85rem;
+    }
+    .search-box svg {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-subtle);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  {{> header}}
+  <div class="content">
+    {{> status-bar}}
+    
+    <!-- KPI Analytics Cards -->
+    <div class="kpi-grid" id="kpi-grid" style="display:none;">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Monitored Groups</span>
+          <div class="kpi-icon" style="background:var(--primary-subtle); color:var(--primary);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-total-groups">0</div>
+        <div class="kpi-subtext" id="kpi-communities-text">0 communities</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Total Members</span>
+          <div class="kpi-icon" style="background:var(--info-subtle); color:var(--info);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-total-members">0</div>
+        <div class="kpi-subtext">Across all groups</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">30-Day Activity</span>
+          <div class="kpi-icon" style="background:var(--purple-subtle); color:var(--purple);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-total-activity">0</div>
+        <div class="kpi-subtext">Posts & reactions</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Most Active Group</span>
+          <div class="kpi-icon" style="background:var(--warning-subtle); color:var(--warning);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-top-group-val" style="font-size: 1.1rem; padding-top: 0.2rem;">-</div>
+        <div class="kpi-subtext" id="kpi-top-group-sub">Highest 30d volume</div>
+      </div>
+    </div>
+
+    <!-- Filter & Export Toolbar -->
+    <div class="toolbar-bar">
+      <div class="toolbar-filters">
+        <div class="search-box">
+          <input type="text" id="group-search" placeholder="Search groups..." onkeyup="applyFilters()" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <select id="role-filter" onchange="applyFilters()">
+          <option value="">All Bot Roles</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Superadmin</option>
+          <option value="participant">Participant</option>
+          <option value="none">Not in Group</option>
+        </select>
+        <select id="activity-filter" onchange="applyFilters()">
+          <option value="">All Activity Levels</option>
+          <option value="active">Active (30d > 0)</option>
+          <option value="inactive">Inactive (0 activity)</option>
+        </select>
+      </div>
+
+      <div class="toolbar-actions">
+        <a href="/api/groups/export?format=csv" class="export-btn" download>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export CSV
+        </a>
+        <a href="/api/groups/export?format=json" class="export-btn" download>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          Export JSON
+        </a>
+      </div>
+    </div>
+
+    <div id="groups"><p class="loading">Loading groups & analytics...</p></div>
+  </div>
+
+  <script>
+    async function loadGroups() {
+      try {
+        const res = await fetch('/api/groups');
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        const data = await res.json();
+        const groups = data.groups || [];
+        if (groups.length === 0) {
+          document.getElementById('groups').innerHTML = '<p class="loading">No groups found</p>';
+          return;
+        }
+
+        renderKpis(groups);
+
+        const sortName = (a, b) => a.name.localeCompare(b.name);
+        const childMap = {};
+        for (const g of groups) {
+          if (g.parentCommunityJid) {
+            if (!childMap[g.parentCommunityJid]) childMap[g.parentCommunityJid] = [];
+            childMap[g.parentCommunityJid].push(g);
+          }
+        }
+        for (const jid in childMap) childMap[jid].sort(sortName);
+        const topLevel = groups.filter(g => !g.parentCommunityJid).sort(sortName);
+
+        let html = '<table><thead><tr><th>Name</th><th class="num">Members</th><th class="num">Activity (30d)</th><th>Last activity</th><th>Your role</th></tr></thead><tbody>';
+
+        function addRow(g, indent) {
+          const nameText = escHtml(g.name);
+          const link = '<a class="group-link" href="/group/' + encodeURIComponent(g.jid) + '">' + nameText + '</a>';
+          const indentPrefix = indent ? '<span class="indent"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>' : '';
+          const name = indentPrefix + link
+            + (g.isCommunity ? ' <span class="badge badge-community">community</span>' : '')
+            + (indent ? '</span>' : '');
+          const role = g.botMembership === 'none' ? '<span class="muted">-</span>' : '<span class="badge badge-' + g.botMembership + '">' + g.botMembership + '</span>';
+          const activity = g.activityCount || 0;
+          const lastAct = g.lastActivity ? timeAgo(g.lastActivity) : '<span class="muted">-</span>';
+          html += '<tr class="group-row" data-name="' + escAttr(g.name.toLowerCase()) + '" data-role="' + escAttr(g.botMembership) + '" data-activity="' + activity + '"><td>' + name + '</td><td class="num">' + (g.memberCount || 0) + '</td><td class="num">' + activity + '</td><td>' + lastAct + '</td><td>' + role + '</td></tr>';
+        }
+
+        for (const g of topLevel) {
+          addRow(g, false);
+          if (g.isCommunity) {
+            for (const child of (childMap[g.jid] || [])) {
+              addRow(child, true);
+            }
+          }
+        }
+
+        html += '</tbody></table>';
+        document.getElementById('groups').innerHTML = html;
+      } catch (e) {
+        document.getElementById('groups').innerHTML = '<p class="loading">Failed to load groups</p>';
+      }
+    }
+
+    function renderKpis(groups) {
+      const totalGroups = groups.length;
+      const communities = groups.filter(g => g.isCommunity).length;
+      const totalMembers = groups.reduce((s, g) => s + (g.memberCount || 0), 0);
+      const totalActivity = groups.reduce((s, g) => s + (g.activityCount || 0), 0);
+      
+      let topGroup = null;
+      for (const g of groups) {
+        if (!topGroup || (g.activityCount || 0) > (topGroup.activityCount || 0)) {
+          topGroup = g;
+        }
+      }
+
+      document.getElementById('kpi-total-groups').textContent = totalGroups;
+      document.getElementById('kpi-communities-text').textContent = communities + ' communities';
+      document.getElementById('kpi-total-members').textContent = totalMembers.toLocaleString();
+      document.getElementById('kpi-total-activity').textContent = totalActivity.toLocaleString();
+      
+      if (topGroup && topGroup.activityCount > 0) {
+        document.getElementById('kpi-top-group-val').textContent = topGroup.name;
+        document.getElementById('kpi-top-group-sub').textContent = topGroup.activityCount + ' activities (30d)';
+      } else {
+        document.getElementById('kpi-top-group-val').textContent = 'None';
+        document.getElementById('kpi-top-group-sub').textContent = 'No 30d activity yet';
+      }
+
+      document.getElementById('kpi-grid').style.display = 'grid';
+    }
+
+    function applyFilters() {
+      const q = document.getElementById('group-search').value.toLowerCase();
+      const role = document.getElementById('role-filter').value;
+      const act = document.getElementById('activity-filter').value;
+      const rows = document.querySelectorAll('.group-row');
+
+      rows.forEach(r => {
+        const name = r.dataset.name || '';
+        const rRole = r.dataset.role || '';
+        const rAct = parseInt(r.dataset.activity || '0', 10);
+
+        let matchName = !q || name.includes(q);
+        let matchRole = !role || rRole === role;
+        let matchAct = true;
+        if (act === 'active') matchAct = rAct > 0;
+        if (act === 'inactive') matchAct = rAct === 0;
+
+        r.style.display = (matchName && matchRole && matchAct) ? '' : 'none';
+      });
+    }
+
+    function timeAgo(ts) {
+      const seconds = Math.floor(Date.now() / 1000) - ts;
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return minutes + 'm ago';
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return hours + 'h ago';
+      const days = Math.floor(hours / 24);
+      if (days < 30) return days + 'd ago';
+      return Math.floor(days / 30) + 'mo ago';
+    }
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function escAttr(s) {
+      return s.replace(/"/g, '&quot;');
+    }
+
+    loadGroups();
+  </script>
+</body>
+</html>

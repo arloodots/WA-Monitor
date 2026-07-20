@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{PROJECT_NAME}} &middot; Group Details</title>
+  <meta name="csrf-token" content="{{CSRF_TOKEN}}" />
+  <link rel="stylesheet" href="/static/shared.css" />
+  <style>
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin: 1.25rem 0 0.5rem;
+    }
+    .group-header-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      background: var(--primary-subtle);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+    .group-header h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .group-meta {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .search-box {
+      position: relative;
+      min-width: 200px;
+    }
+    .search-box input {
+      padding-left: 2.5rem;
+      padding-top: 0.55rem;
+      padding-bottom: 0.55rem;
+      font-size: 0.85rem;
+    }
+    .search-box svg {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-subtle);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  {{> header}}
+  <div class="content">
+    {{> status-bar}}
+    <a class="back" href="/">&larr; Back to groups</a>
+    <div class="group-header">
+      <div class="group-header-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      </div>
+      <h2 id="group-name">Loading...</h2>
+    </div>
+    <div class="group-meta" id="group-meta"></div>
+
+    <!-- Group KPI Analytics Cards -->
+    <div class="kpi-grid" id="group-kpi-grid" style="display:none;">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Group Roster</span>
+          <div class="kpi-icon" style="background:var(--primary-subtle); color:var(--primary);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-group-members">0</div>
+        <div class="kpi-subtext" id="kpi-group-active-members">0 active (30d)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Posts (30d)</span>
+          <div class="kpi-icon" style="background:var(--info-subtle); color:var(--info);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-group-posts">0</div>
+        <div class="kpi-subtext">Sent by participants</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Reactions (30d)</span>
+          <div class="kpi-icon" style="background:var(--purple-subtle); color:var(--purple);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-group-reactions">0</div>
+        <div class="kpi-subtext">Message reactions</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-label">Top Contributor</span>
+          <div class="kpi-icon" style="background:var(--warning-subtle); color:var(--warning);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </div>
+        </div>
+        <div class="kpi-value" id="kpi-top-member-val" style="font-size: 1.1rem; padding-top: 0.2rem;">-</div>
+        <div class="kpi-subtext" id="kpi-top-member-sub">Most active participant</div>
+      </div>
+    </div>
+
+    <!-- Filter & Roster Export Toolbar -->
+    <div class="toolbar-bar">
+      <div class="toolbar-filters">
+        <div class="search-box">
+          <input type="text" id="member-search" placeholder="Search members..." onkeyup="applyMemberFilters()" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <select id="member-role-filter" onchange="applyMemberFilters()">
+          <option value="">All Roles</option>
+          <option value="admin">Admin</option>
+          <option value="superadmin">Superadmin</option>
+          <option value="participant">Participant</option>
+          <option value="none">Left Group</option>
+        </select>
+        <select id="member-act-filter" onchange="applyMemberFilters()">
+          <option value="">All Activity</option>
+          <option value="active">Active (30d > 0)</option>
+          <option value="inactive">Inactive (0 posts/reactions)</option>
+        </select>
+      </div>
+
+      <div class="toolbar-actions">
+        <a id="export-csv-btn" href="#" class="export-btn" download>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export CSV
+        </a>
+        <a id="export-json-btn" href="#" class="export-btn" download>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          Export JSON
+        </a>
+      </div>
+    </div>
+
+    <div id="members"><p class="loading">Loading members...</p></div>
+    <div id="pagination" class="pagination" style="display:none"></div>
+    <button class="toggle" id="toggle-left" style="display:none" onclick="toggleLeft()">Show former members</button>
+  </div>
+  <script>
+    const groupJid = decodeURIComponent(window.location.pathname.split('/group/')[1]);
+    document.getElementById('export-csv-btn').href = '/api/groups/' + encodeURIComponent(groupJid) + '/export?format=csv';
+    document.getElementById('export-json-btn').href = '/api/groups/' + encodeURIComponent(groupJid) + '/export?format=json';
+
+    let allMembers = [];
+    let showLeft = false;
+    let sortCol = 'name';
+    let sortAsc = true;
+    let page = 1;
+    const perPage = parseInt('{{PAGE_SIZE}}', 10) || 50;
+
+    const columns = [
+      { key: 'name', label: 'Participant', num: false },
+      { key: 'phone', label: 'Phone', num: false },
+      { key: 'posts', label: 'Posts', num: true },
+      { key: 'reactions', label: 'Reactions', num: true },
+      { key: 'total', label: 'Activity', num: true },
+      { key: 'lastActivity', label: 'Last activity', num: false },
+      { key: 'lastReadAt', label: 'Last read <span class="info-icon" title="Only records when a member reads a message sent by the connected account, and only if they have read receipts enabled">\u24d8</span>', num: false },
+    ];
+
+    async function loadGroup() {
+      try {
+        const res = await fetch('/api/groups/' + encodeURIComponent(groupJid));
+        if (res.status === 401) { window.location.href = '/login'; return; }
+        if (res.status === 404) {
+          document.getElementById('group-name').textContent = 'Group not found';
+          document.getElementById('members').innerHTML = '';
+          return;
+        }
+        const data = await res.json();
+        document.getElementById('group-name').textContent = data.group.name;
+        document.getElementById('group-meta').textContent = data.group.memberCount + ' members' + (data.group.lastActivity ? ' \u00b7 last active ' + timeAgo(data.group.lastActivity) : '');
+        allMembers = data.members || [];
+        const hasLeft = allMembers.some(m => m.membership === 'none');
+        if (hasLeft) document.getElementById('toggle-left').style.display = 'inline';
+
+        renderGroupKpis(allMembers);
+        renderMembers();
+      } catch (e) {
+        document.getElementById('members').innerHTML = '<p class="loading">Failed to load group</p>';
+      }
+    }
+
+    function renderGroupKpis(members) {
+      const activeMembers = members.filter(m => m.membership !== 'none');
+      const activeCount = members.filter(m => m.total > 0).length;
+      const totalPosts = members.reduce((s, m) => s + (m.posts || 0), 0);
+      const totalReactions = members.reduce((s, m) => s + (m.reactions || 0), 0);
+
+      let topMember = null;
+      for (const m of members) {
+        if (!topMember || (m.total || 0) > (topMember.total || 0)) {
+          topMember = m;
+        }
+      }
+
+      document.getElementById('kpi-group-members').textContent = activeMembers.length;
+      document.getElementById('kpi-group-active-members').textContent = activeCount + ' active contributors';
+      document.getElementById('kpi-group-posts').textContent = totalPosts.toLocaleString();
+      document.getElementById('kpi-group-reactions').textContent = totalReactions.toLocaleString();
+
+      if (topMember && topMember.total > 0) {
+        document.getElementById('kpi-top-member-val').textContent = topMember.displayName || topMember.phoneNumber || '~';
+        document.getElementById('kpi-top-member-sub').textContent = topMember.total + ' total activities';
+      } else {
+        document.getElementById('kpi-top-member-val').textContent = 'None';
+        document.getElementById('kpi-top-member-sub').textContent = 'No 30d activity';
+      }
+
+      document.getElementById('group-kpi-grid').style.display = 'grid';
+    }
+
+    function sortValue(m, col) {
+      if (col === 'name') return m.displayName || '\uffff';
+      if (col === 'phone') return m.phoneNumber || '';
+      if (col === 'lastActivity') return m.lastActivity || 0;
+      if (col === 'lastReadAt') return m.lastReadAt || '';
+      return m[col] || 0;
+    }
+
+    function renderMembers() {
+      let members = getFilteredMembers();
+      if (members.length === 0) {
+        document.getElementById('members').innerHTML = '<p class="loading">No matching members found</p>';
+        document.getElementById('pagination').style.display = 'none';
+        return;
+      }
+      members.sort((a, b) => {
+        if (a.membership === 'none' && b.membership !== 'none') return 1;
+        if (a.membership !== 'none' && b.membership === 'none') return -1;
+        const va = sortValue(a, sortCol), vb = sortValue(b, sortCol);
+        let cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+        return sortAsc ? cmp : -cmp;
+      });
+
+      const totalPages = Math.ceil(members.length / perPage);
+      if (page > totalPages) page = totalPages;
+      if (page < 1) page = 1;
+      const start = (page - 1) * perPage;
+      const pageMembers = members.slice(start, start + perPage);
+
+      let html = '<table><thead><tr>';
+      for (const col of columns) {
+        const arrow = sortCol === col.key ? (sortAsc ? ' \u25b2' : ' \u25bc') : '';
+        html += '<th' + (col.num ? ' class="num"' : '') + ' onclick="doSort(\'' + col.key + '\')">' + col.label + '<span class="sort-arrow">' + arrow + '</span></th>';
+      }
+      html += '</tr></thead><tbody>';
+
+      let rowIdx = 0;
+      for (const m of pageMembers) {
+        const isLeft = m.membership === 'none';
+        const isInactive = m.total === 0;
+        const classes = [(isLeft || isInactive) ? 'inactive' : '', rowIdx % 2 === 1 ? 'even' : ''].filter(Boolean).join(' ');
+        const cls = classes ? ' class="' + classes + '"' : '';
+        rowIdx++;
+
+        const displayName = m.displayName || '~';
+        let nameHtml = '<a class="user-link" href="/user/' + encodeURIComponent(m.userJid) + '">' + escHtml(displayName) + '</a>';
+        if (m.membership === 'admin' || m.membership === 'superadmin') nameHtml += ' <span class="badge badge-' + m.membership + '">' + m.membership + '</span>';
+        if (m.isBot) nameHtml += ' <span class="badge badge-bot">You</span>';
+        if (isLeft) nameHtml += ' <span class="badge badge-none">left</span>';
+
+        const phone = m.phoneNumber ? '<a class="phone-link" href="https://wa.me/' + escHtml(m.phoneNumber) + '">+' + escHtml(m.phoneNumber) + '</a>' : '<span class="inactive">-</span>';
+        const lastAct = m.lastActivity ? timeAgo(m.lastActivity) : '<span class="inactive">-</span>';
+        const lastRead = m.lastReadAt ? daysAgo(m.lastReadAt) : '<span class="inactive">-</span>';
+
+        html += '<tr' + cls + '><td>' + nameHtml + '</td><td>' + phone + '</td><td class="num">' + m.posts + '</td><td class="num">' + m.reactions + '</td><td class="num"><strong style="color:var(--primary);">' + m.total + '</strong></td><td>' + lastAct + '</td><td>' + lastRead + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('members').innerHTML = html;
+
+      const pagEl = document.getElementById('pagination');
+      if (totalPages <= 1) { pagEl.style.display = 'none'; return; }
+      pagEl.style.display = 'flex';
+      const from = start + 1, to = Math.min(start + perPage, members.length);
+      let pagHtml = '<span>' + from + '\u2013' + to + ' of ' + members.length + ' members</span><div class="pages">';
+      pagHtml += '<button onclick="goPage(' + (page - 1) + ')"' + (page <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+      let startPage = Math.max(1, page - 3), endPage = Math.min(totalPages, startPage + 6);
+      if (endPage - startPage < 6) startPage = Math.max(1, endPage - 6);
+      for (let i = startPage; i <= endPage; i++) pagHtml += '<button onclick="goPage(' + i + ')"' + (i === page ? ' class="active"' : '') + '>' + i + '</button>';
+      pagHtml += '<button onclick="goPage(' + (page + 1) + ')"' + (page >= totalPages ? ' disabled' : '') + '>&raquo;</button></div>';
+      pagEl.innerHTML = pagHtml;
+    }
+
+    function getFilteredMembers() {
+      let members = showLeft ? [...allMembers] : allMembers.filter(m => m.membership !== 'none');
+      const q = (document.getElementById('member-search')?.value || '').toLowerCase();
+      const role = document.getElementById('member-role-filter')?.value || '';
+      const act = document.getElementById('member-act-filter')?.value || '';
+
+      return members.filter(m => {
+        const name = (m.displayName || '').toLowerCase();
+        const phone = (m.phoneNumber || '').toLowerCase();
+        const jid = (m.userJid || '').toLowerCase();
+
+        let matchQ = !q || name.includes(q) || phone.includes(q) || jid.includes(q);
+        let matchRole = !role || m.membership === role;
+        let matchAct = true;
+        if (act === 'active') matchAct = m.total > 0;
+        if (act === 'inactive') matchAct = m.total === 0;
+
+        return matchQ && matchRole && matchAct;
+      });
+    }
+
+    function applyMemberFilters() {
+      page = 1;
+      renderMembers();
+    }
+
+    function doSort(col) {
+      if (sortCol === col) sortAsc = !sortAsc;
+      else { sortCol = col; sortAsc = !columns.find(c => c.key === col)?.num; }
+      page = 1;
+      renderMembers();
+    }
+    function goPage(p) { page = p; renderMembers(); document.getElementById('members').scrollIntoView({ behavior: 'smooth' }); }
+    function toggleLeft() { showLeft = !showLeft; page = 1; document.getElementById('toggle-left').textContent = showLeft ? 'Hide former members' : 'Show former members'; renderMembers(); }
+    function timeAgo(ts) {
+      const s = Math.floor(Date.now() / 1000) - ts;
+      if (s < 60) return 'just now';
+      const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+      const d = Math.floor(h / 24); if (d < 30) return d + 'd ago';
+      return Math.floor(d / 30) + 'mo ago';
+    }
+    function daysAgo(dateStr) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (dateStr === today) return 'Today';
+      const diff = Math.round((new Date(today) - new Date(dateStr)) / 86400000);
+      if (diff === 1) return 'Yesterday';
+      return diff + ' days ago';
+    }
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    loadGroup();
+  </script>
+  <script src="/static/shared.js"></script>
+</body>
+</html>
